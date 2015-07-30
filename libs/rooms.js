@@ -1,16 +1,19 @@
 "use strict";
 
-const auths = require('./auths.js'),
+const	auths = require('./auths.js'),
 	server = require('./server.js'),
+	prefs = require('./prefs.js'),
 	maxAgeForNotableMessages = 50*24*60*60, // in seconds
 	memobjects = new Map,
 	clean = require('./ws.js').clean;
 
-var langs,
+var	langs,
+	db,
 	welcomeRoomIds;
 	
 exports.configure = function(miaou){
 	langs = require('./langs.js').configure(miaou);
+	db = miaou.db;
 	welcomeRoomIds = miaou.config.welcomeRooms || [];
 	return this;
 }
@@ -47,23 +50,32 @@ exports.updateNotables = function(memroom){
 }
 
 // room admin page GET
-exports.appGetRoom = function(req, res, db){
-	db.on([+req.query.id, +req.user.id])
-	.spread(db.fetchRoomAndUserAuth)
+exports.appGetRoom = function(req, res){
+	var theme;
+	db.on().then(function(){
+		return prefs.get.call(this, req.user.id);
+	}).then(function(userPrefs){
+		theme = prefs.theme(userPrefs, req.query.theme);
+		return this.fetchRoomAndUserAuth(+req.query.id, +req.user.id);
+	})
 	.then(function(room){
 		if (!auths.checkAtLeast(room.auth, 'admin')) {
 			return server.renderErr(res, "Admin level is required to manage the room");
 		}
-		res.render('room.jade', {vars:{ room:room, error:null, langs:langs.legal }});
+		res.render('room.jade', {
+			vars:{ room:room, error:null, langs:langs.legal }, theme:theme
+		});
 	}).catch(db.NoRowError, function(){
-		res.render('room.jade', {vars:{ room:null, error:null, langs:langs.legal }});
+		res.render('room.jade', { // TODO ???
+			vars:{ error:null, langs:langs.legal }, theme:theme
+		});
 	}).catch(function(err){
 		server.renderErr(res, err);
 	}).finally(db.off);
 }
 
 // room admin page POST
-exports.appPostRoom = function(req, res, db){
+exports.appPostRoom = function(req, res){
 	var roomId = +req.query.id;
 	if (req.body.name && !/^.{2,50}$/.test(req.body.name)) {
 		return server.renderErr(res, "invalid room name");
@@ -105,26 +117,37 @@ exports.appPostRoom = function(req, res, db){
 }
 
 // rooms list GET
-exports.appGetRooms = function(req, res, db){
+exports.appGetRooms = function(req, res){
 	db.on(welcomeRoomIds)
 	.map(function(roomId){
-		return this.fetchRoomAndUserAuth(roomId, req.user.id)
+		return this.fetchRoomAndUserAuth(roomId, req.user.id, true)
+	})
+	.filter(function(welcomeRoom, i){
+		if (welcomeRoom) return true;
+		console.log("WARNING: missing welcome room (id is "+welcomeRoomIds[i]+")");
 	})
 	.then(function(welcomeRooms){
 		return [
 			this.listFrontPageRooms(req.user.id),
 			this.fetchUserPingRooms(req.user.id, 0),
-			welcomeRooms
+			welcomeRooms,
+			prefs.get.call(this, req.user.id)
 		]
 	})
-	.spread(function(rooms, pings, welcomeRooms){
+	.spread(function(rooms, pings, welcomeRooms, userPrefs){
 		rooms.forEach(function(r){ r.path = server.roomPath(r) });
 		welcomeRooms.forEach(function(r){ r.path = server.roomPath(r) });
-		var mobile = server.mobile(req);
-		res.render(mobile ? 'rooms.mob.jade' : 'rooms.jade', {
+		var mobile = server.mobile(req),
+			data = {
 			vars:{rooms:rooms, langs:langs.legal, mobile:mobile, welcomeRooms:welcomeRooms},
 			user:req.user, pings:pings
-		});
+		};
+		if (mobile) {
+			res.render('rooms.mob.jade', data);
+		} else {
+			data.theme = prefs.theme(userPrefs, req.query.theme);
+			res.render('rooms.jade', data);
+		}
 	})
 	.catch(function(err){
 		server.renderErr(res, err);
@@ -132,7 +155,7 @@ exports.appGetRooms = function(req, res, db){
 	.finally(db.off);
 }
 
-exports.appGetJsonRooms = function(req, res, db){
+exports.appGetJsonRooms = function(req, res){
 	db.on(req.user.id)
 	.then(db.listFrontPageRooms)
 	.then(function(rooms){
@@ -148,7 +171,7 @@ exports.appGetJsonRooms = function(req, res, db){
 }
 
 // rooms list POST
-exports.appPostRooms = function(req, res, db){
+exports.appPostRooms = function(req, res){
 	db.on()
 	.then(function(){
 		if (req.body.clear_pings) return this.deleteAllUserPings(req.user.id)

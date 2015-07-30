@@ -1,5 +1,5 @@
 
-miaou(function(chat, locals, watch, ws){
+miaou(function(chat, locals, time, watch, ws){
 	var	rooms = [];
 
 	// ROOMS MANAGEMENT
@@ -21,7 +21,6 @@ miaou(function(chat, locals, watch, ws){
 			var $r = $('<div>').addClass('room'),
 				$rl = $('<div>').addClass('room-left').appendTo($r),
 				$rr = $('<div>').addClass('room-right').appendTo($r),
-				$rm = $('<div>').addClass('last-message').appendTo($r),
 				iswatched = watch.watched(r.id);
 			$('<a>').attr('href', r.path).addClass('room-title').text(r.name).appendTo($rl);
 			var html = miaou.fmt.mdTextToHtml(r.description), floatImage = /^<img[^>]*><br>/.test(html);
@@ -44,18 +43,7 @@ miaou(function(chat, locals, watch, ws){
 				$('<button>').addClass('small').text('enter').click(function(){ location = r.path; }).appendTo($rr);
 			}
 			if (r.lastcreated) {
-				var $lc = $('<span>').addClass('lastcreated').text('Last message: '+miaou.formatRelativeTime(r.lastcreated)).appendTo($rr);
-				$lc.mouseenter(function(){
-					$.get('json/messages/last?room='+r.id, function(data){
-						var m = data.messages[0];
-						$lc.text('Last message: '+miaou.formatRelativeTime(m.created));
-						$rm.empty().css('top',$r.height()+'px').show().append(
-							$('<i>').text(m.authorname+': ')
-						).append(
-							$('<span>').text(m.content.match(/^[^\n]{0,100}/)[0])
-						);
-					});
-				});
+				$('<span>').addClass('lastcreated').html('Last message:<br>'+time.formatRelativeTime(r.lastcreated)).appendTo($rr);
 			}
 			return $r;
 		}));
@@ -72,7 +60,7 @@ miaou(function(chat, locals, watch, ws){
 		switch (i){
 		case 0:
 			listRooms(
-				rooms.filter(function(r){ return !r.private && (r.lastcreated || r.auth)})
+				rooms.filter(function(r){ return !r.private && (r.hasself || r.auth)})
 				, 'Your Public Rooms'
 			);
 			listRooms(
@@ -81,22 +69,13 @@ miaou(function(chat, locals, watch, ws){
 			);
 			break;
 		case 1:
-			listRooms(
-				rooms.filter(function(r){ return !r.private })
-				.sort(function(a,b){ return b.lastcreated-a.lastcreated })
-			);
+			listRooms(rooms.filter(function(r){ return !r.private }));
 			break;
 		case 2:
-			listRooms(
-				rooms.filter(function(r){ return r.private && !r.dialog })
-				.sort(function(a,b){ return b.lastcreated-a.lastcreated })
-			);
+			listRooms(rooms.filter(function(r){ return r.private && !r.dialog }));
 			break;
 		case 3:
-			listRooms(
-				rooms.filter(function(r){ return r.dialog })
-				.sort(function(a,b){ return b.lastcreated-a.lastcreated })
-			);
+			listRooms(rooms.filter(function(r){ return r.dialog }));
 			break;
 		}
 	}
@@ -203,7 +182,7 @@ miaou(function(chat, locals, watch, ws){
 	});
 
 	$(window).on('keydown', function(e){
-		if (e.which===70 && e.ctrlKey && $('#room-and-rooms').hasClass('open')) {
+		if (e.which===70 && e.ctrlKey && !$('#room-and-rooms').hasClass('open')) {
 			righttab("search");
 			return false;
 		}

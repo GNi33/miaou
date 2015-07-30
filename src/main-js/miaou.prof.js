@@ -1,6 +1,6 @@
 // functions related to user profile displaying on hover
 
-miaou(function(prof, gui, locals){
+miaou(function(prof, gui, locals, skin){
 	
 	var showTimer;
 	
@@ -25,12 +25,23 @@ miaou(function(prof, gui, locals){
 		var user = $user.data('user') || $user.closest('.notification,.user-messages,.user-line').data('user'),
 			uo = $user.offset(),
 			uh = $user.outerHeight(), uw = $user.width(),
-			wh = $(window).height();
+			wh = $(window).height(),
+			mintop = 0, maxbot = wh,
+			$ms = $('#message-scroller');
+		if ($ms.length) {
+			mintop = $ms.offset().top;
+			maxbot = wh-($ms.offset().top+$ms.height());
+		}
 		var $p = $('<div>').addClass('profile').text('loading profile...'), css={};
-		if (uo.top<wh/2) css.top = uo.top;
-		else css.bottom = wh-uo.top-uh;
+		if (uo.top<wh/2) css.top = Math.max(uo.top, mintop);
+		else css.bottom = Math.max(wh-uo.top-uh, maxbot);
 		css.left = uo.left + uw;
-		$p.load('publicProfile?user='+user.id+'&room='+locals.room.id);
+		$p.load('publicProfile?user='+user.id+'&room='+locals.room.id, function(){
+			$p.find('.avatar').css('color', skin.stringToColour(user.name));
+			if ($p.offset().top+$p.height()>wh) {
+				$p.css('bottom', '0').css('top','auto');
+			}
+		});
 		$p.css(css).appendTo('body');
 		$user.addClass('profiled');
 		$(window).on('mousemove', prof.checkOverProfile);
@@ -49,7 +60,11 @@ miaou(function(prof, gui, locals){
 		$(window).off('mousemove', prof.checkOverProfile);
 	};
 
+	prof.displayed = function(){
+		return !!$('.profile').length;
+	}
+
 	prof.toggle = function(){
-		prof[$('.profile').length ? 'hide' : 'show'].call(this);
+		prof[prof.displayed() ? 'hide' : 'show'].call(this);
 	};
 });

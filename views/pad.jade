@@ -41,15 +41,15 @@ html
 						button.small#hidePreview Hide
 				#hist
 			#right
-				div#roomdescription.rendered
-				div.tabs
+				#room-description.rendered
+				.tabs
 					span.tab.selected(page="notablemessagespage") Notable Messages
 					span.tab(page="search") Search
-				div.page.selected#notablemessagespage
-					div#notable-messages
-				div.page#search
+				.page.selected#notablemessagespage
+					#notable-messages
+				.page#search
 					input#searchInput(autocomplete="off")
-					div#search-results
+					#search-results
 						i
 							p Type anything to search it (common English words are ignored)
 							p Hit <code>esc</code> to clear
@@ -57,7 +57,7 @@ html
 			#stripe-top
 				#M-menu
 					a#Miaou-logo-wrapper(href="rooms")
-						object#Miaou-logo(type="image/svg+xml",data="static/Miaou.svg")
+						object.Miaou-logo#Miaou-logo(type="image/svg+xml",data="static/Miaou.svg")
 					#menu-content
 						p You're connected as <span id=me></span>
 						a.menu-item#menu-logout Log Out

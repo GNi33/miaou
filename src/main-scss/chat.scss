@@ -1,3 +1,4 @@
+
 #prefs, #room-info {
 	margin: 5px;
 }
@@ -5,11 +6,19 @@
 #left, #right, #center {
 	position: fixed;
 }
+
 #left {
 	top:0; left:0; bottom:0;
 	width: $left-panel-width;
 	background: $left-background;
 	overflow-y: auto;
+}
+#center {
+	@include flexbox(row);
+	top:0;
+	bottom: 0;
+	box-shadow: $center-shadow;
+	z-index: 2;
 }
 #right {
 	top:0; right:0; bottom:0;
@@ -18,33 +27,46 @@
 	overflow-y: auto;	
 }
 
-#center {
-	display:flex;
-	flex-direction: row;
-	top:0;
-	left: $left-panel-width;
-	right: $right-panel-width;
-	bottom: 0;
-	box-shadow: $center-shadow;
-	z-index: 2;
+@media (max-width: 1300px) {
+	#left {
+		width: 110px;
+	}
+	#right {
+		width: 280px;
+	}
+	#center {
+		left: 110px;
+		right: 280px;
+	}
 }
+@media (min-width: 1300px) {
+	#left {
+		width: $left-panel-width;
+	}
+	#right {
+		width: $right-panel-width;
+	}
+	#center {
+		left: $left-panel-width;
+		right: $right-panel-width;
+	}
+}
+
+
 #vert-center {
-	display:flex;
-	flex-direction: column;
+	@include flexbox(column);
 	height: 100%;
-	flex-grow: 1;
-	flex-basis: 0;
+	@include flex(1 0 0);
 	min-width: 0;
 }
 
 #message-scroller {
 	overflow-y: scroll;
 	overflow-x: hidden; // prevents Chrome from having an horizontal scrollbar here
-	flex-grow: 1;
-	flex-basis: 0;
+	@include flex(1 0 0);
 }
 #notifications {
-	flex-grow: 0;
+	@include flex-grow(0);
 }
 
 .table {
@@ -69,25 +91,36 @@ section {
 }
 #users {
 	padding-top: 2px;
-	.user {
+	height: 95%;
+	@include flexbox(column);
+	.user, .user.profiled {
 		position: relative;
+		@include flex(1 0 18px);
+		max-height: 30px;
 		cursor: pointer;
+		@include flexbox(row, center);
 		padding: 1px 5px;
-		display: block;
 		text-overflow: ellipsis;
 		overflow: hidden;
-		line-height: 18px;
 		font-style: italic;
-		color: $user-text-color-in-user-list;
 		font-size: 95%;
+		span {
+			color: $user-text-color-in-user-list;		
+		}
 		&:hover {
 			background: $profile-bg;
 		}
 		&.connected {
-			font-style: normal;
-			color: $connected-user-text-color-in-user-list;
+			span {
+				font-style: normal;
+				color: $connected-user-text-color-in-user-list;
+			}
 			box-shadow: $connected-user-bg-color-in-user-list 200px 0 0 0 inset;
 			transition: box-shadow 3s;
+		}
+		&.connected:hover {
+			box-shadow: $profile-bg 200px 0 0 0 inset;
+			transition: box-shadow 0;
 		}
 		box-shadow: $connected-user-bg-color-in-user-list 0 0 0 0 inset;
 		transition: box-shadow 4s;
@@ -151,6 +184,7 @@ body.mobile #message-scroller {
 	margin-bottom: $user-messages-vmargin;
 	border-top: $user-messages-border-top;
 	border-bottom: $user-messages-border-bottom;
+	padding: $user-messages-padding;
 	&.me {
 		background: $message-me-bg;
 		border-top: $user-messages-me-border-top;
@@ -167,9 +201,7 @@ body.mobile #message-scroller {
 		padding: $user-padding-in-message;
 		width: 110px;
 		z-index: 6;
-		display: flex;
-		align-items: center;
-		justify-content: center;
+		@include flexbox(row, center, center);
 		background: $user-in-messages-bg;
 		box-shadow: $user-color-shadow-in-messages;
 		transition: box-shadow .3s;
@@ -186,9 +218,9 @@ body.mobile #message-scroller {
 		div.avatar { // no avatar available
 			background: $no-avatar-bg;
 		}
-		.avatar {
-			margin: 4px;
-		}
+		//~ .avatar {
+			//~ margin: 4px;
+		//~ }
 		border-right: $user-in-messages-border-right;
 	}
 	&:hover .user {
@@ -202,37 +234,56 @@ body.mobile #message-scroller {
 	.user {
 		.avatar-wrapper {
 			width: 16px;
+			height: 16px;
 			.avatar {
 				max-width: 100%;
+				max-height: 100%;
 				height: auto;
 			}
 		}
-		flex-direction: row;
 	}
 	.user.size1 {
 		.avatar-wrapper {
 			width: 20px;
-			margin-right: 10px; // I don't really understand why I need this
+			height: 20px;
+			margin-right: 2px;
 		}
-		flex-direction: row;
 	}
 	.user.size2 {
 		.avatar-wrapper {
 			width: 26px;
+			height: 26px;
+			margin-bottom: 2px;
 		}
-		flex-direction: column;	
+		span {
+			width: 100%;
+			text-align: center;
+		}
+		@include flex-direction(column);
 	}
 	.user.size3 {
 		.avatar-wrapper {
 			width: 40px;
+			height: 40px;
+			margin-bottom: 2px;
 		}
-		flex-direction: column;	
+		span {
+			width: 100%;
+			text-align: center;
+		}
+		@include flex-direction(column);
 	}
 	.user.size4 {
 		.avatar-wrapper {
 			width: 56px;
+			height: 56px;
+			margin-bottom: 2px;
 		}
-		flex-direction: column;	
+		span {
+			width: 100%;
+			text-align: center;
+		}
+		@include flex-direction(column);
 	}
 }
 
@@ -295,6 +346,9 @@ body.mobile #message-scroller {
 			border: 1px solid $message-content-table-border-color;
 			padding: 0 3px;
 		}
+		tr:nth-child(even) {
+			background: rgba(120,120,120,.09);
+		}
 	}
 	hr {
 		width: 100%;
@@ -314,27 +368,23 @@ body.mobile #message-scroller {
 #messages, .messages {
 	.message, .error, .access_request {
 		min-height: $message-min-height;
-		display: flex;
-		align-items: stretch;
+		@include flexbox(row, stretch);
 		.user {
-			align-self: stretch;
-			flex-basis: 120px;
-			flex-grow: 0;
-			flex-shrink: 0;
-			display: flex;
-			align-items: center;
+			@include align-self(stretch);
+			@include flex(0 0 120px);
+			@include flexbox(row, center);
 		}
 		.content {
 			margin: $message-content-margin;
 			line-height: $message-content-line-height;
-			flex-grow: $message-content-flex-grow;
+			@include flex-grow($message-content-flex-grow);
 			&.wide {
-				flex-grow: $message-wide-content-flex-grow;			
+				@include flex-grow($message-wide-content-flex-grow);			
 			}
 		}
 		.mdate {
-			align-self: flex-start;
-			flex: 0 1 90px;
+			@include align-self(flex-start);
+			@include flex(0 0 90px);
 			text-align: right;
 			font-size: 80%;
 			padding: 2px;
@@ -344,11 +394,8 @@ body.mobile #message-scroller {
 
 .decorations {
 	z-index: 7;
-	flex: 0 0 120px;
-	display: flex;
-	flex-direction: row;
-	align-items: center;
-	justify-content: flex-end;
+	@include flex(0 0 120px);
+	@include flexbox(row, center, flex-end);
 	button {
 		text-align: center;
 		padding: 0 3px;
@@ -356,15 +403,15 @@ body.mobile #message-scroller {
 		&:last-child {
 			margin-right: 12px;		
 		}
-		border-radius: 3px;
+		border-radius: $decoration-button-border-radius;
 		box-shadow: $message-decoration-button-box-shadow;		
 		font-size: 10px;
 		line-height: 14px;
 	}
 	.decoration {
 		font-family: "fontello";
-		margin: 2px;
-		flex: 0 0 15px;
+		margin: 1px;
+		@include flex(0 0 15px);
 		cursor: default;
 		color: $decoration-color;
 		&.clickable {
@@ -373,11 +420,15 @@ body.mobile #message-scroller {
 		}
 	}
 }
+.message .decorations .decoration:last-child{
+	margin-right: 10px;
+}
 
 #users .decorations {
 	position: absolute;
 	top: 0;
 	right: 0;
+	height: 100%;
 }
 
 .rendered {
@@ -409,10 +460,14 @@ table.list .rendered img, .rooms-list .rendered img {
 	max-width: 220px;
 }
 
-#roomdescription {
+#room-description {
 	padding: 5px;
 	img {
 		max-height: 75vh;
+		&:first-child {
+			display: block;
+			margin: auto;
+		}
 	}
 	font-size: 13px;
 }
@@ -484,11 +539,11 @@ body.mobile .message-menu .vote {
 			background: $side-message-even-background;
 		}
 		&:hover {
-			background: lighten($bg-color, 10%);
+			background: $side-message-hover-bg;
 			transition: background 0.2s;
 		}
 		&.selected {
-			background: lighten($bg-color, 24%);		
+			background: $side-message-selected-bg;		
 			transition: background 0.2s;
 		}
 		cursor: pointer;
@@ -498,7 +553,7 @@ body.mobile .message-menu .vote {
 		}
 	}
 	.content {
-		opacity: 0.8;
+		opacity: 0.9;
 	}
 	.closed {
 		max-height: 48px;
@@ -518,7 +573,7 @@ pre {
 	overflow-x: auto;
 	white-space: pre;
 	word-wrap: normal;
-	margin: 5px;
+	margin: 4px 4px 13px 4px;
 }
 code {
 	font-family: monospace;
@@ -531,12 +586,8 @@ code {
 .citation {
 	border-left: medium solid $citation-border-color;
 	margin-left: 15px;
-	padding-left: 0;
+	padding-left: 5px;
 	display: inline-block;
-}
-.citation::before {
-	content: ".";
-	opacity: 0;
 }
 .h1 {
 	font-weight: bold;
@@ -558,11 +609,10 @@ code {
 #input-panel {
 	position: relative;
 	background: $input-panel-bg-color;
-	flex-basis:  $input-height + 8px;
-	flex-grow: 0;
+	@include flex(0 0 ($input-height + 8px) );
 	z-index: 10;
 }
-#autocompleter,  {
+#autocompleter {
 	position: absolute;
 	top: -12px;
 	left: 0;
@@ -577,6 +627,37 @@ code {
 		&.selected {
 			font-weight: bold;
 		}
+		&.special {
+			font-style: italic;
+		}
+	}
+}
+#code-controls {
+	position: absolute;
+	font-size: 90%;
+	top: -31px;
+	left: 0;
+	right: 0;
+	height: 29px;
+	z-index: 9;
+	background: $bg-color;
+	box-shadow: 0 -1px 1px black;
+	padding: 2px 0 0 5px;
+	@include flexbox(row, center);
+	overflow: hidden;
+	span.lang {
+		margin: 4px;
+		padding: 2px;
+		border: thin dashed #888;
+		white-space: nowrap;
+		cursor: pointer;
+		&.selected {
+			background: rgba(255,255,255,.4);
+			border: thin solid #666;
+		}
+		&:hover {
+			background: rgba(255,255,255,.4);		
+		}
 	}
 }
 body.mobile #input-panel {
@@ -589,7 +670,7 @@ $input-buttons-width: 74px;
 #input {
 	width: calc(100% - 16px - #{$input-buttons-width}); 
 	height: $input-height;
-	margin-top: 2px;
+	margin-top: 1px;
 	margin-left: 2px;
 	resize: none; 
 	float: left;
@@ -629,7 +710,7 @@ body.mobile #input-panel button {
 	background: $bg-color;
 	width:100%;
 	height: $input-height + 8px;
-	flex-grow: 0;
+	@include flex-grow(0);
 	display: none;
 }
 #upload-panel {
@@ -642,10 +723,7 @@ body.mobile #input-panel button {
 	text-align: center;
 }
 #upload-wait {
-	display: flex;
-	flex-direction: column;
-	justify-content: space-around;
-	align-items: center;
+	@include flexbox(column, center, space-around);
 }
 h1 {
 	color: $title-text-color;
@@ -768,17 +846,25 @@ span.warning {
 	}
 }
 
-.list {
+body.home .list, .list {
 	width: 100%;
 	margin-bottom: 30px;
+	border-spacing: 0;
 	th, td {
 		padding: 8px;
-		background: white;
+		background: $list-odd-cell-bg;
 		text-align: left;
+		color: $list-cell-color;
+		a {
+			color: $list-cell-color;		
+			&:hover {
+				color: $list-cell-hover-link-color;
+			}
+		}
 	}
 	tr:nth-child(even) {
 		th, td {
-			background: #faf7d5;
+			background: $list-even-cell-bg;
 		}
 	} 
 	td.role {
@@ -886,7 +972,7 @@ div#notifs {
 		top: 170px;
 	}
 	body.logo {
-		background: $bg-color url(../../Miaou-300-f.png) center no-repeat;
+		background: $logo-bg-color url(../../Miaou-300-f.png) center no-repeat;
 		background-position: 50% 1px;
 	}
 }
@@ -895,7 +981,7 @@ div#notifs {
 		top: 35%;
 	}
 	body.logo {
-		background: $bg-color url(../../Miaou-300-f.png) center no-repeat;
+		background: $logo-bg-color url(../../Miaou-300-f.png) center no-repeat;
 		background-position: 50% 100px;
 	}
 }
@@ -909,7 +995,7 @@ div#notifs {
 	.tab {
 		display: table-cell;
 		text-align: center;
-		padding: 5px;
+		padding: 8px;
 		border-style:solid;
 		border-color:  $chat-tabs-border-color;
 		border-width: 0 0 $chat-tabs-border-width 0;

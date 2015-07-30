@@ -1,6 +1,6 @@
 // functions related to users
 
-miaou(function(usr, ed, locals, mod, ws){
+miaou(function(usr, ed, locals, mod, time, ws){
 
 	var	levels = ['read', 'write', 'admin', 'own'],
 		recentUsers = []; // sorted list of {id,name,mc} (this list isn't displayed but used for ping autocompletion)
@@ -9,7 +9,10 @@ miaou(function(usr, ed, locals, mod, ws){
 	usr.avatarsrc = function(o){
 		if (!o.avk) return;
 		if (/^https?:\/\//.test(o.avk)) return o.avk; // this is hacky...
-		return 'http://avatars.io/'+o.avs+'/'+o.avk+'?size=large';
+		if (o.avs==="gravatar") { // because avatars.io redirects https to http, I try to avoid it
+			return "https://www.gravatar.com/avatar/"+o.avk+"?s=200";
+		}
+		return 'https://avatars.io/'+o.avs+'/'+o.avk+'?size=large';
 	}
 
 	function $user(user){
@@ -46,8 +49,8 @@ miaou(function(usr, ed, locals, mod, ws){
 		usr.insertAmongRecentUsers(user, time);
 	}
 
-	usr.insertAmongRecentUsers = function(user, time){
-		user.mc = time;
+	usr.insertAmongRecentUsers = function(user, enterTime){
+		user.mc = enterTime;
 		for (var i=0; i<recentUsers.length; i++) {
 			if (recentUsers[i].id===user.id) {
 				recentUsers.splice(i, 1);
@@ -55,7 +58,7 @@ miaou(function(usr, ed, locals, mod, ws){
 			}
 		}
 		for (var i=0; i<recentUsers.length; i++) {
-			if (time>recentUsers[i].mc) {
+			if (enterTime>recentUsers[i].mc) {
 				recentUsers.splice(i, 0, user);
 				return;
 			}
@@ -63,19 +66,20 @@ miaou(function(usr, ed, locals, mod, ws){
 		recentUsers.push(user);
 	}
 
-	usr.insertInUserList = function(user, time) {
+	usr.insertInUserList = function(user, enterTime) {
 		var target, $u = $user(user);
-		if (!time) time = Date.now()/1000|0;
+		if (!enterTime) enterTime = time.now();
 		if ($u.length) {
-			if (time <= $u.data('time')) return $u;
+			if (enterTime <= $u.data('time')) return $u;
 			$u.detach();
 		} else {
-			$u = $('<span class=user/>').text(user.name).data('user',user);
+			$u = $('<div>').addClass('user').data('user', user);
+			$('<span>').text(user.name).appendTo($u);
 			$('<div>').addClass('decorations').appendTo($u);
 		}
-		$u.data('time', time);
+		$u.data('time', enterTime);
 		$('#users .user').each(function(){
-			if ($(this).data('time')<=time) {
+			if ($(this).data('time')<=enterTime) {
 				target = this;
 				return false;
 			}

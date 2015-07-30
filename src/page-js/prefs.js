@@ -10,16 +10,18 @@ miaou(function(locals){
 	$(document.body).addClass(
 		/Android|webOS|iPhone|iPad|iPod|BlackBerry|Mini/i.test(navigator.userAgent) ? 'mobile' : 'desktop'
 	);
+	
+	miaou.horn.init();
 
 	function selectTab(i){
-		$('.tab').removeClass('selected').filter(':nth-child('+(i+1)+')').addClass('selected');
+		$('.home-tab').removeClass('selected').filter(':nth-child('+(i+1)+')').addClass('selected');
 		var $container = $('#prefs-main-content');
-		$container.find('.page').removeClass('selected').eq(i).addClass('selected');
+		$container.find('.home-page').removeClass('selected').eq(i).addClass('selected');
 		if ($(window).scrollTop()>tabletop) $(window).scrollTop(tabletop);
 	}
 	if (location.hash==="#notifs") selectTab(2);
 	else selectTab(0);
-	$('.tab').click(function(){
+	$('.home-tab').click(function(){
 		selectTab($(this).index());
 	});			
 	$('#logout').click(function(){
@@ -50,19 +52,25 @@ miaou(function(locals){
 	$('#location').val(userinfo.location||'');
 	$('#url').val(userinfo.url||'');
 	$('#lang').val(userinfo.lang);
-	$('input[name=notif][value='+userPrefs.notif+']').prop('checked', true);
-	$('#sound').val(userPrefs.sound);
-	$('#nifvis').val(userPrefs.nifvis);
-	$('#theme').val(userPrefs.theme);
-	$('input[name=datdpl][value='+userPrefs.datdpl+']').prop('checked', true);
+	
+	// preferences
+	Object.keys(userPrefs).forEach(function(key){
+		var $input = $('#'+key);
+		if ($input.length) {
+			$input.val(userPrefs[key]);
+		} else {
+			// must be radio button based
+			$('input[name='+key+'][value='+userPrefs[key]+']').prop('checked', true);
+		}
+	});
 
 	// Avatar preferences management
 	avatarSources = {
 		gravatar:{
-			keyLabel: 'email',
+			keyLabel: 'hash or email',
 			description: 'Gravatar is a free service'+
 				' providing avatars globally identified by your email. You can upload your portrait'+
-				' at <a href=http://gravatar.com target=gravatar>gravatar.com</a>.',
+				' at <a href=https://gravatar.com target=gravatar>gravatar.com</a>.',
 			key: locals.email
 		},
 		twitter:{
@@ -89,7 +97,7 @@ miaou(function(locals){
 			$('#avatar-preview').empty();
 			return;
 		}
-		var url = src.keyLabel ? "http://avatars.io/"+srcname+"/"+key+'?size=large' : key;
+		var url = src.keyLabel ? "https://avatars.io/"+srcname+"/"+key+'?size=large' : key;
 		console.log("Try", url);
 		$('#avatar-preview').empty();
 		$('<img>').on('load', function(){
@@ -121,12 +129,15 @@ miaou(function(locals){
 	$('#avatar-src').append(Object.keys(avatarSources).map(function(key){
 		return $('<option>').text(key).val(key);
 	})).on('change', onchangeAvatarSrc);
+	
 	if (locals.avatarsrc) {
 		$('#avatar-src').val(locals.avatarsrc);
 		$('#avatar-key').val(locals.avatarkey);
 		var src = avatarSources[locals.avatarsrc];
 		if (src.keyLabel) {
 			src.key = locals.avatarkey;
+			$('#avatar-key-label').html(src.keyLabel+':');
+			$('#avatar-src-description').html(src.description||'');
 		} else {
 			$('#avatar-key').val('').hide();			
 		}
@@ -135,6 +146,10 @@ miaou(function(locals){
 		onchangeAvatarSrc();
 	}
 	$('#avatar-try').click(avatarTry);
+	
+	$('#try-sound').click(function(){
+		miaou.horn.honk($('#volume').val());
+	});
 
 	if (!valid) $('#close').hide();
 
@@ -150,4 +165,5 @@ miaou(function(locals){
 			return false;
 		});
 	}
+	
 });

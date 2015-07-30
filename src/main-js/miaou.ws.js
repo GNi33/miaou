@@ -1,9 +1,9 @@
 // ws : handles the connection to the server over socket.io (websocket whenever possible)
 
-miaou(function(ws, chat, ed, gui, hist, locals, md, mod, notif, usr, watch){
+miaou(function(ws, chat, ed, gui, hist, locals, md, mod, notif, time, usr, watch){
 
 	ws.init = function(){
-		var pingRegex = new RegExp('@'+locals.me.name+'(\\b|$)', 'i'),
+		var	pingRegex = new RegExp('(^|\\s)@(room|here|'+locals.me.name+')\\b', 'i'),
 			info = { state:'connecting', start:Date.now() },
 			socket = io.connect(location.origin);
 
@@ -28,7 +28,7 @@ miaou(function(ws, chat, ed, gui, hist, locals, md, mod, notif, usr, watch){
 				var ping = pingRegex.test(message.content);
 				if (message.id) md.updateNotableMessage(message);
 				if (
-					(message.id||ping) && (message.changed||message.created)>chat.enterTime && message.content
+					(message.id||ping) && time.isNew(message) && message.content
 				) {
 					notif.touch(message.id, ping, message.authorname, message.content, locals.room, $md);
 				}
@@ -36,11 +36,7 @@ miaou(function(ws, chat, ed, gui, hist, locals, md, mod, notif, usr, watch){
 			md.updateLoaders();
 			md.showMessageFlowDisruptions();
 			if (typeof prettyPrint !== 'undefined') prettyPrint();
-		}
-
-		function setEnterTime(serverTime){
-			chat.enterTime = serverTime;
-			chat.timeOffset = Date.now()/1000 - serverTime;
+			hist.showPage();
 		}
 
 		socket
@@ -57,7 +53,7 @@ miaou(function(ws, chat, ed, gui, hist, locals, md, mod, notif, usr, watch){
 		.on('config', function(serverConfig){
 			for (var key in serverConfig) chat.config[key] = serverConfig[key];
 		})
-		.on('set_enter_time', setEnterTime)
+		.on('set_enter_time', time.setRoomEnterTime)
 		.on('server_commands', function(commands){
 			for (var key in commands) chat.commands[key] = commands[key];
 		})
@@ -78,7 +74,7 @@ miaou(function(ws, chat, ed, gui, hist, locals, md, mod, notif, usr, watch){
 			notif.updateTab(0, 0);
 			$('#roomname').text(locals.room.name);
 			var htmldesc = miaou.fmt.mdTextToHtml(locals.room.description);
-			$('#roomdescription').html(htmldesc);
+			$('#room-description').html(htmldesc);
 			$('#room-panel-bg').css('background-image',function(){
 				var m = htmldesc.match(/^<img (?:href="?[^"> ]+"? )?src="?([^">]+)"?[^>]*>(<br>|$)/);
 				return m ? 'url('+m[1]+')' : '';
@@ -91,16 +87,19 @@ miaou(function(ws, chat, ed, gui, hist, locals, md, mod, notif, usr, watch){
 		.on('notableIds', md.updateNotableMessages)
 		.on('request', md.showRequestAccess)
 		.on('reconnect', function(){
-			console.log('RECONNECT, sending room again');
-			setTimeout(function(){
+			ws.notif.onOn();
+			//setTimeout(function(){
 				socket.emit('enter', locals.room.id);
-			}, 500); // first message after reconnect not always received by server if I don't delay it (todo : elucidate and clean)
+			//}, 500); // first message after reconnect not always received by server if I don't delay it (todo : elucidate and clean)
 		})
 		.on('welcome', function(){
 			info.state = 'connected';
 			gui.entered = true;
-			if (location.hash) md.focusMessage(+location.hash.slice(1));
-			else gui.scrollToBottom();
+			gui.scrollToBottom();
+			location.hash = location.hash.replace(/^#?(\d+)/, function(s,n){
+				md.focusMessage(+n);
+				return '';
+			});
 			usr.showEntry(locals.me);
 			if (watch.enabled) socket.emit('start_watch');
 		})
@@ -134,7 +133,7 @@ miaou(function(ws, chat, ed, gui, hist, locals, md, mod, notif, usr, watch){
 		.on('hist', hist.show)
 		.on('pings', notif.pings)
 		.on('rm_ping', notif.removePing)
-		.on('disconnect', function(){ console.log('DISCONNECT') })
+		.on('disconnect', ws.notif.onOff)
 		.on('enter',usr.showEntry)
 		.on('leave', usr.showLeave)
 		.on('miaou.error', md.showError)
@@ -145,13 +144,13 @@ miaou(function(ws, chat, ed, gui, hist, locals, md, mod, notif, usr, watch){
 		.on('wat', watch.add)
 		.on('watch_incr', watch.incr)
 		.on('watch_raz', watch.raz)
+		.on('watch_started', watch.started)
 		.on('unwat', watch.remove)
 		.on('error', function(err){
 			// in case of a user having lost his rights, we don't want him to constantly try to connect
-			socket.disconnect();
 			console.log('ERROR', err);
-			md.showError(err);
-			md.showError("A fatal error occurred, you're disconnected from the server (you might try refreshing the page)");
+			console.log("A fatal error occurred, you're disconnected from the server (you might try refreshing the page)");
+			socket.disconnect();
 		});
 	}
 });

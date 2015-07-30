@@ -6,13 +6,17 @@ const VALUE_MAX_LENGTH = 20, // must be not greater than the limit set in the DB
 	path = require('path'),
 	naming = require('./naming.js'),
 	server = require('./server.js'),
-	cache = require('bounded-cache')(5),
-	defaultPrefs = { // also defines the valid keys
-		notif: 'on_ping',	// when to raise a desktop notification
-		sound: 'standard', 	// sound on notification
-		datdpl: 'hover',	// date display 
-		nifvis: 'no',		// notifies even if the tab is visible
-		theme: 'default'	//
+	crypto = require('crypto'),
+	cache = require('bounded-cache')(500),
+	defaultPrefs = { // also defines the valid keys (max length: 6 chars)
+		notif:	'on_ping',	// when to raise a desktop notification : on_ping|on_message|none
+		sound:	'standard',	// sound on notification : standard|quiet|none (hidden today because only one sound)
+		volume: '.7',		// notification volume : 0 to 1
+		datdpl:	'hover',	// date display : hover|on_breaks|always
+		nifvis:	'no',		// notifies even if the tab is visible : yes|no
+		connot:	'yes',		// message content displayed in desktop notif : yes|no
+		theme:	'default',	// theme
+		otowat:	'on_post',	// autowatch : on_visit|on_post|never
 	};
 
 var	db,
@@ -50,7 +54,7 @@ var getUserPrefs = exports.get = function(userId){
 }
 
 // user prefs page GET & POST
-exports.appAllPrefs = function(req, res, db){
+exports.appAllPrefs = function(req, res){
 	var externalProfileInfos = plugins.filter(function(p){ return p.externalProfile}).map(function(p){
 		return { name:p.name, ep:p.externalProfile, fields:p.externalProfile.creation.fields }
 	});
@@ -98,6 +102,14 @@ exports.appAllPrefs = function(req, res, db){
 			var	name = req.body.name.trim(),
 				avatarsrc = req.body['avatar-src'],
 				avatarkey = req.body['avatar-key'];
+				
+			// in the very specific case of a user having choosed gravatar and
+			//  having given a clear email, we hash it so that it's never displayed
+			//  to other users through the URL of the avatar
+			if (avatarsrc==='gravatar' && /@/.test(avatarkey)) {
+				avatarkey = crypto.createHash('md5').update(avatarkey.trim().toLowerCase()).digest('hex');
+			}
+			
 			if (!naming.isValidUsername(name)) return;
 			if (name!==req.user.name && naming.isUsernameForbidden(name)) {
 				error = "Sorry, that username is reserved.";
@@ -155,12 +167,11 @@ exports.appAllPrefs = function(req, res, db){
 			}
 		});
 		var hasValidName = naming.isValidUsername(req.user.name);
-		res.render('prefs.jade', {
+		var data = {
 			user: req.user,
 			error: error,
 			suggestedName:  hasValidName ? req.user.name : naming.suggestUsername(req.user.oauthdisplayname || ''),
-			themes: themes,
-			externalProfileInfos: externalProfileInfos,
+			themes: themes, externalProfileInfos: externalProfileInfos,
 			vars:{
 				userPrefs: userPrefs,
 				valid : hasValidName,
@@ -171,7 +182,11 @@ exports.appAllPrefs = function(req, res, db){
 				avatarkey: req.user.avatarkey,
 				pluginAvatars: pluginAvatars
 			}
-		});
+		};
+		if (!server.mobile(req)) {
+			data.theme = exports.theme(userPrefs, req.query.theme);
+		}
+		res.render('prefs.jade', data);
 	}).catch(function(err){
 		server.renderErr(res, err);
 	}).finally(db.off)

@@ -1,6 +1,6 @@
 // manages the list and dispatching of notifications
 
-miaou(function(notif, chat, horn, locals, md, watch, ws){
+miaou(function(notif, chat, gui, horn, locals, md, watch, ws){
 				
 	var	notifications = [], // array of {r:roomId, rname:roomname, mid:messageid}
 		notifMessage, // an object created with md.notificationMessage displaying notifications
@@ -76,7 +76,8 @@ miaou(function(notif, chat, horn, locals, md, watch, ws){
 					})
 				).appendTo($c)
 			}
-			var nbotherrooms = Object.keys(otherRooms).length;
+			var	otherRoomIds = Object.keys(otherRooms),
+				nbotherrooms = otherRoomIds.length;
 			if (nbotherrooms) {
 				var t = "You've been pinged in room";
 				if (nbotherrooms>1) t += 's';
@@ -96,20 +97,23 @@ miaou(function(notif, chat, horn, locals, md, watch, ws){
 						notif.updatePingsList();
 					}).appendTo($brs);
 				});
+				watch.setPings(otherRoomIds);
 			}	
 		});
 	}
 	
 	// add pings to the list and update the GUI
 	notif.pings = function(pings){
-		console.log("received pings", pings);
 		var	changed = false,
+			visible = vis(),
 			map = notifications.reduce(function(map,n){ map[n.mid]=1;return map; }, {});
 		pings.forEach(function(ping){
-			if (!ping.mid) console.log("ERROR MISSING ID");// temp assert
 			if (!map[ping.mid]) {
 				notifications.push(ping);
 				changed = true;
+				if (locals.userPrefs.notif!=="never" && (!visible || locals.userPrefs.nifvis==="yes")) {
+					horn.show(ping.mid, ping.rname, ping.authorname, ping.content);
+				}
 			}
 		});
 		notifications.sort(function(a,b){ return a.mid-b.mid }); // this isn't perfect as some notifications are related to flakes
@@ -153,21 +157,20 @@ miaou(function(notif, chat, horn, locals, md, watch, ws){
 				return;
 			}
 			if (lastUserActionAge>1500 && !$('#mwin[mid='+mid+']').length) {
-				if (mid) notif.pings([{r:r.id, rname:r.name, mid:mid}]);
+				if (mid) notif.pings([{r:r.id, rname:r.name, mid:mid, authorname:from, content:text}]);
 				else if ($md) md.goToMessageDiv($md);
 			}
 		}
 		if (!visible || locals.userPrefs.nifvis==="yes") {
 			if (
 				( locals.userPrefs.notif==="on_message" || (ping && locals.userPrefs.notif==="on_ping") )
-				 && lastUserActionAge>500
+				&& lastUserActionAge>500
 			) {
 				horn.show(mid, r||locals.room, from, text);					
 			}
 		}
 		if (!visible) notif.updateTab(!!notifications.length, ++nbUnseenMessages);
 	}
-
 
 	notif.updateTab = function(hasPing, nbUnseenMessages){
 		var title = locals.room.name,
@@ -196,7 +199,7 @@ miaou(function(notif, chat, horn, locals, md, watch, ws){
 		// we go to the last notification message, highlight it and remove the ping
 		var ln = lastNotificationInRoom();
 		if (ln) notif.removePing(ln.mid, true, true);
-		$('#input').focus();
+		if (!gui.mobile) $('#input').focus();
 		notif.userAct();
 	}
 

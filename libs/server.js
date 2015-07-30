@@ -1,6 +1,6 @@
 "use strict";
 
-const fs = require("fs"),
+const	fs = require("fs"),
 	http = require('http'),
 	path = require('path'),
 	express = require('express'),
@@ -11,7 +11,6 @@ const fs = require("fs"),
 	naming = require('./naming.js'),
 	session = require('express-session'),
 	RedisStore = require('connect-redis')(session),
-	sessionStore = new RedisStore({}),
 	oauth2Strategies = {},
 	mobileRegex = /Android|webOS|iPhone|iPad|Mini/i;
 
@@ -34,7 +33,10 @@ function configureOauth2Strategies(){
 	var impls = {
 		google: {
 			strategyConstructor: require('passport-google-oauth').OAuth2Strategy,
-			scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email']
+			scope: [
+				'https://www.googleapis.com/auth/userinfo.profile',
+				'https://www.googleapis.com/auth/userinfo.email'
+			]
 		}, stackexchange: {
 			strategyConstructor: require('./passport-stackexchange.js').Strategy
 		}, github: {
@@ -52,7 +54,7 @@ function configureOauth2Strategies(){
 			continue;
 		}
 		params.callbackURL = url("/auth/"+key+"/callback"); 
-		passport.use(new (impl.strategyConstructor)(params, function(accessToken, refreshToken, profile, done) {			
+		passport.use(new (impl.strategyConstructor)(params, function(accessToken, refreshToken, profile, done) {
 			db.on(profile)
 			.then(db.getCompleteUserFromOAuthProfile)
 			.then(function(user){ done(null, user) })
@@ -66,11 +68,11 @@ function configureOauth2Strategies(){
 	login.setOauth2Strategies(oauth2Strategies);
 }
 
-// defines the routes to be taken by GET and POST requests
+// define the routes to be taken by GET and POST requests
 function defineAppRoutes(){
-	var auths = require('./auths.js'),
+	var	auths = require('./auths.js').configure(miaou),
 		rooms = require('./rooms.js').configure(miaou),
-		messages = require('./messages.js'),
+		messages = require('./messages.js').configure(miaou),
 		upload = require('./upload.js').configure(miaou),
 		clienterrors = require('./clienterrors.js').configure(miaou),
 		profile = require('./profile.js').configure(miaou),
@@ -91,13 +93,20 @@ function defineAppRoutes(){
 		var args = [path];
 		if (!noNeedForLogin) args.push(ensureAuthenticated);
 		if (!noNeedForCompleteProfile) args.push(ensureCompleteProfile);
-		args.push(fun.length<=2 ? fun : function(req, res){ fun(req, res, db) });
+		args.push(fun);
 		app[verb].apply(app, args);
 	}
 	for (var key in oauth2Strategies){
 		var s = oauth2Strategies[key];
-		app.get('/auth/'+key, passport.authenticate(key, {scope:s.scope, state:'Ohio', duration:'permanent'}));
-		app.get('/auth/'+key+'/callback', passport.authenticate(key, { failureRedirect: '/login' }), function(req, res) { res.redirect(url()) });		
+		app.get(
+			'/auth/'+key,
+			passport.authenticate(key, {scope:s.scope, state:'Ohio', duration:'permanent'})
+		);
+		app.get(
+			'/auth/'+key+'/callback',
+			passport.authenticate(key, { failureRedirect: '/login' }),
+			function(req, res) { res.redirect(url()) }
+		);
 	}
 	map('get', '/login', login.appGetLogin, true, true);
 	map('get', '/logout', login.appGetLogout, true, true);
@@ -119,13 +128,18 @@ function defineAppRoutes(){
 	map('post', '/error', clienterrors.appPostError, true, true);
 	map('get', '/json/rooms', rooms.appGetJsonRooms);
 	map('get', '/json/messages/last', messages.appGetJsonLastMessages, true, true);
+	miaou.plugins.forEach(function(p){
+		if (p.registerRoutes) p.registerRoutes(map);
+	});
 }
 
 // starts the whole server, both regular http and websocket
 function startServer(){
 	naming.configure(miaou);
 
-	var cookieParser = require('cookie-parser')(miaou.config.secret);
+	var	cookieParser = require('cookie-parser')(miaou.config.secret),
+		RedisStore = require('connect-redis')(session),
+		sessionStore = new RedisStore(miaou.config.redisStore || {});
 	app = express();
 	server = http.createServer(app);
 	app.disable('x-powered-by');
@@ -138,17 +152,26 @@ function startServer(){
 	app.use(bodyParser.urlencoded({ extended:false }));
 	app.use(cookieParser);
 	app.use(session({
-		store: sessionStore, secret: miaou.config.secret, saveUninitialized: true, resave: true /* todo test resave false */
+		store: sessionStore, secret: miaou.config.secret,
+		saveUninitialized: true, resave: false 
 	}));
 	app.use(passport.initialize());
 	app.use(passport.session());
-	app.use(require('./anti-csrf.js')({ whitelist:['/upload', '/error'] }));
+
+	miaou.plugins.forEach(function(p){
+		if (p.appuse) app.use(p.appuse);
+	});
+
+	var anticsrf = require('./anti-csrf.js');
+	anticsrf.whitelist('/upload');
+	anticsrf.whitelist('/error');
+	app.use(anticsrf.filter);
 	
-	app.use(function(req, res, next) {
+	app.use(function(req, res, next){
 		res.set("X-Frame-Options", "deny");
 		res.set("Content-Security-Policy", "script-src 'self'");
 		res.set("Cache-Control", "no-transform");
-		return next();
+		next();
 	});
 	
 	app.locals.theme = miaou.config.themes[0]; // default theme
@@ -179,10 +202,11 @@ exports.renderErr = function(res, err, base){
 }
 
 function initPlugins(){
-	(miaou.config.plugins||[]).forEach(function(n){
+	miaou.plugins = (miaou.config.plugins||[]).map(function(n){
 		var	pluginfilepath = path.resolve(__dirname, '..', n),
 			plugin = require(pluginfilepath);
 		if (plugin.init) plugin.init(miaou, path.dirname(pluginfilepath));
+		return plugin;
 	});
 }
 
@@ -190,18 +214,15 @@ exports.start = function(config){
 	baseURL = config.server;
 	miaou = {
 		db:db,
-		config:config
+		config:config,
+		pageBoxer:require('./page-boxers.js')
 	};
 	db.init(config, function(){
 		db.on("miaou")
 		.then(db.getBot)
 		.then(function(b){
 			miaou.bot = b;
- 			if (config.botAvatar.src!==b.avatarsrc || config.botAvatar.key!==b.avatarkey) {
-				console.log("config.botAvatar.src:",config.botAvatar.src);
-				console.log("b.avatarsrc:",b.avatarsrc);
-				console.log("config.botAvatar.key:",config.botAvatar.key);
-				console.log("b.avatarkey:",b.avatarkey);
+			if (config.botAvatar.src!==b.avatarsrc || config.botAvatar.key!==b.avatarkey) {
 				b.avatarsrc = config.botAvatar.src;
 				b.avatarkey = config.botAvatar.key;
 				return this.updateUser(b)
@@ -210,8 +231,8 @@ exports.start = function(config){
 		.finally(db.off)
 		.then(function(){
 			configureOauth2Strategies();
-			startServer();
 			initPlugins();
+			startServer();
 		});		
 	});
 }

@@ -1,4 +1,5 @@
 // replaces URL to SO questions, answers and comments with the relevant extract
+//   using the StackExchange API.
 // The filter parameter passed to SO API can be edited here :
 //   https://api.stackexchange.com/docs/questions#order=desc&sort=activity&filter=!9YdnSJrC1&site=stackoverflow&run=true
 
@@ -13,7 +14,7 @@ var	http = require('http'),
 	tasks = new Deque(2000), currentTask;
 	
 function logoCDN(task){
-	var img = '<img src=http://cdn.sstatic.net/'+task.site;
+	var img = '<img src=https://cdn.sstatic.net/'+task.site.split('.')[0];
 	if (task.meta) img += 'meta';
 	img += '/img/apple-touch-icon.png width=40>';
 	return img;
@@ -49,7 +50,7 @@ var handlers = {
 			side += '<div class=so-owner-name>'+item.owner.display_name+'</div>';
 
 			main += '<a target=_blank class=so-title href="'+task.line+'">'+
-				'<img src=http://cdn.sstatic.net/'+task.site+'/img/apple-touch-icon.png width=40>'+
+				'<img src=https://cdn.sstatic.net/'+task.site+'/img/apple-touch-icon.png width=40>'+
 				item.title+'</a>';
 			main += '<div class=so-tags>'+item.tags.map(function(tag){ return '<span>'+tag+'</span>' }).join('')+'</div>';
 			main += '<div class=so-body>'+item.body+'</div>';
@@ -81,24 +82,24 @@ var handlers = {
 // SO API always answers with gzipped content (even if your headers forbid it, it seems)
 // callback is given an error and a js object
 function getFromSO(url, callback){
-    var buffer = [];
-    http.get(url, function(res) {
-        var gunzip = zlib.createGunzip();            
-        res.pipe(gunzip);
-        gunzip.on('data', function(data){
-            buffer.push(data.toString())
-        }).on("end", function(){
+	var buffer = [];
+	http.get(url, function(res) {
+		var gunzip = zlib.createGunzip();			
+		res.pipe(gunzip);
+		gunzip.on('data', function(data){
+			buffer.push(data.toString())
+		}).on("end", function(){
 			try {
 				callback(null, JSON.parse(buffer.join('')));
 			} catch (e) {
 				callback(e);
 			}
-        }).on("error", function(e){
-            callback(e);
-        });
-    }).on('error', function(e){
-        callback(e)
-    });
+		}).on("error", function(e){
+			callback(e);
+		});
+	}).on('error', function(e){
+		callback(e)
+	});
 }
 
 function dequeue(){
@@ -158,7 +159,7 @@ exports.addTask = function(task){
 // read the text to find and analyze SE URL
 exports.rawTasks = function(text){
 	var	tasks = [],
-		r = /(?:^|\n)\s*https?:\/\/(meta\.)?(stackoverflow|askubuntu|stackexchange|superuser).com\/(a|q|questions)\/(\d+)(\/[^\s#]*)?(#\S+)?\s*(?:$|\n)/gm,
+		r = /(?:^|\n)\s*https?:\/\/(meta\.)?(stackoverflow|askubuntu|(?:dba\.)?stackexchange|superuser).com\/(a|q|questions)\/(\d+)(\/[^\s#]*)?(#\S+)?\s*(?:$|\n)/gm,
 		match;
 	while (match=r.exec(text)) {
 		var	path = match[5], submatch,

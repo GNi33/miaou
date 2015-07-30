@@ -12,15 +12,14 @@ $box-background: rgba(255, 255, 255, 0.8);
 
 $general-text-color: #bbb;
 $title-text-color: #bbb;
-$message-content-bg: #0a0a0a;
-$hovered-message-content-bg: #333;
+$hovered-message-content-bg: black;
 
 $input-border: none;
 $chat-tabs-border-color: $accent-minus;
 
 $message-content-border-color: #333;
 $content-border-bottom-before-disrupt: none;
-$content-border-top-after-disrupt: thin solid #888;
+$content-border-top-after-disrupt: thin solid #222;
 
 $decoration-color: $accent-minus;
 $decoration-clickable-color: $accent;
@@ -53,8 +52,9 @@ $message-me-user-color: $accent-minus;
 $user-text-color-in-message: inherit; // gives to the username the color of the user
 $code-text-color: #888;
 $user-color-shadow-in-messages: none;
-$user-color-shadow-in-messages: -105px 0 1px;
-$hovered-user-color-shadow-in-messages: -6px 0 3px;
+$user-color-shadow-in-messages: inset 1px 0 1px;
+$hovered-user-color-shadow-in-messages: inset 1px 0 1px;
+//~ $hovered-user-color-shadow-in-messages: inset 35px 0 70px;
 
 
 $citation-border-color: #666;
@@ -84,6 +84,18 @@ $reply-box-color: #999;
 
 $goingto-bg: rgba(128, 0, 128, 0.7);
 
+// home
+$home-main-shadows: 0 0 10px $accent-plus;
+$home-mi-shadows: 0 0 5px $accent;
+$home-top-color: #ccc;
+$home-hover-link-color: $accent-plus;
+$notif-color: #ccc;
+$notif-hover-link-color: $accent-plus;
+$list-odd-cell-bg: #050505;
+$list-even-cell-bg: #090909;
+$list-cell-color: #ccc;
+$list-cell-hover-link-color: $accent-plus;
+
 // right tabs
 $chat-tabs-unselected-bg-color: transparent;
 $chat-tabs-selected-bg-color: transparent;
@@ -91,13 +103,15 @@ $chat-page-selected-bg: $chat-tabs-selected-bg-color;
 
 // profile in chat
 $profile-bg: rgba(20,0,10,0.94);
-$profile-box-shadow: none;
+$profile-box-shadow: 3px 0 3px $accent-minus;
 $profile-text-color: #ccc;
+
+// profile avatar rendering
+$profile-avatar-filter: drop-shadow(0 0 2px);
 
 // message sizing
 $message-min-height: 34px;
 $message-content-padding: 6px 10px;
-$message-content-flex-grow: 0;
 $message-content-border-radius: 5px;
 $message-content-margin: 4px;
 
@@ -112,6 +126,7 @@ $button-hover-border-color: none;
 $small-button-box-shadow: none;
 
 $right-panel-width: 450px;
+
 
 
 ::-webkit-scrollbar {
@@ -160,4 +175,4 @@ $pad-room-last-message-bg: $pad-room-hover-bg;
 $pad-room-last-message-border-top: solid thin PaleVioletRed;
 
 // miaou logo
-$miaou-logo-color: $general-text-color;
+$miaou-logo-color: $accent;

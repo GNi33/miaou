@@ -25,39 +25,33 @@ html
 			}
 	body.prefs
 		section#prefs-top
-			div.MP
-				a(href="rooms")
-					img(src="static/Miaou-300-f.png",width="180px",hspace="5px")
+			.MP
+				object.Miaou-logo#Prefs-logo(type="image/svg+xml",data="static/Miaou.svg")
 				p.links
 					| You're logged as
-					a.username(href="prefs",title="edit profile")= user.name
+					span.username= user.name
 					| -
 					a(id="logout",href="#") Log Out
 					| -
 					a(href="help#About",target=help) Help
-		section
-			div.MP
+		section#prefs-notifs
+			.MP
 				h2 Preferences
 				p#err.error= error
 
-		#prefs-tabs.MP
-			span.tab.selected Profile
-			span.tab Identities
-			span.tab Avatar
-			span.tab Notifications
-			span.tab Display
-		#prefs-tab-shadows.MP
-			span.tab.selected 
-			span.tab 
-			span.tab 
-			span.tab 
-			span.tab 
+		.home-tabs.MP
+			.home-tab.selected Profile
+			.home-tab Identities
+			.home-tab Avatar
+			.home-tab Notifications
+			.home-tab Display
+			.home-tab Watch
 			
 		section#prefs-main.hastabs
 			#prefs-main-content
 				form(method="post")
 					input(type="hidden", name="secret", value=secret)
-					.page.selected
+					.home-page.selected
 						table.form
 							tr
 								th Name
@@ -79,7 +73,7 @@ html
 								th Web Site
 								td
 									input#url(type="url", name="url", value="", maxlength="250")
-					.page.externalProfiles
+					.home-page.externalProfiles
 						p If you have an account on one of those sites, you may display it in your Miaou profile by proving ownership below.
 						table.form
 							each ep in externalProfileInfos
@@ -105,7 +99,7 @@ html
 															td= field.notice
 											if ep.creationDescription
 												p !{ep.creationDescription}
-					.page.avatar
+					.home-page.avatar
 						#avatar-edit.MP
 							#avatar-fields
 								.avatar-fields-row
@@ -120,7 +114,7 @@ html
 								.avatar-fields-row
 									button(type="button")#avatar-try Try
 							#avatar-preview
-					.page
+					.home-page
 						table.form
 							tr
 								th Desktop Notification
@@ -134,26 +128,34 @@ html
 									input#notif_on_message(type="radio", name="notif", value="on_message")
 									label(for="notif_on_message") Whenever a message is posted in an open room
 							tr
+								th Show Message Content in Desktop Notification
+								td
+									select#connot(name="connot")
+										option(value="yes") yes
+										option(value="no") no
+							tr
 								th Notification Sound
 								td
-									select#sound(name="sound")
-										option(value="none") none
-										option(value="quiet") very quiet
-										option(value="standard") standard (recommended)
+									select#volume(name="volume")
+										option(value="0") none
+										option(value=".1") very quiet
+										option(value=".4") quiet
+										option(value=".7") standard
+										option(value="1") strong
+									button(type="button")#try-sound Try
 							tr
 								th When Tab Is Visible 
 								td
 									select#nifvis(name="nifvis")
 										option(value="no") no notification
 										option(value="yes") notify too
-
-					.page
+					.home-page
 						table.form
 							tr
-								th Message Chat Theme (beta)
+								th Message Chat Theme
 								td
 									select#theme(name="theme")
-										option(value="default") default (let the server or room choose the theme)
+										option(value="default") default
 										each theme in themes
 											option(value=theme)= theme
 							tr
@@ -167,6 +169,15 @@ html
 									br
 									input#date_display_always(type="radio", name="datdpl", value="always")
 									label(for="date_display_always") Always
+					.home-page
+						table.form
+							tr
+								th Auto-watch rooms
+								td
+									select#otowat(name="otowat")
+										option(value="on_visit") When visiting the room
+										option(value="on_post") When posting in the room
+										option(value="never") Never
 					.dialog-buttons
 						button#submit Save
 						button#close Home

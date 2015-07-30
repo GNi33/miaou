@@ -1,6 +1,6 @@
 "use strict";
 
-const apiversion = 43,
+const	apiversion = 47,
 	nbMessagesAtLoad = 50, nbMessagesPerPage = 20, nbMessagesBeforeTarget = 5, nbMessagesAfterTarget = 5,
 	Promise = require("bluebird"),
 	path = require('path'),
@@ -47,23 +47,16 @@ exports.getOnSendMessagePlugins = function(){
 	return onSendMessagePlugins;
 }
 
-// removes all useless properties from an object
+// clones the message, removing all useless properties and the deleted content
 // A typical not lighted message is like this :
 //  {"id":629,"author":9,"authorname":"dystroy_lo","content":"A typical content in Miaou is very short.","created":1394132801,"changed":null,"pin":0,"star":0,"up":0,"down":0,"vote":null,"score":0}
 // lighted :
 //  {"id":629,"author":9,"authorname":"dystroy_lo","content":"A typical content in Miaou is very short.","created":1394132801}
-// FIXME : this function might be slow and, more importantly, it makes the object slower to iterate (hash table mode)
-//            (confirmed for the iteration : http://jsperf.com/lightenings)
-//         Is the solution to clone the object ?
-function lighten(obj){
-	for (var k in obj) {
-		if (!obj[k]) delete obj[k];
+var clean = exports.clean = function(src){
+	var m = {};
+	for (var k in src) {
+		if (src[k]) m[k] = src[k];
 	}
-	return obj;
-}
-
-var clean = exports.clean = function(m){
-	lighten(m);
 	if (m.content && /^!!deleted /.test(m.content)) {
 		m.content = m.content.match(/^!!deleted (by:\d+ )?(on:\d+ )?/)[0];
 	}
@@ -72,7 +65,7 @@ var clean = exports.clean = function(m){
 
 // returns all the sockets of the given roomId
 var roomSockets = exports.roomSockets = function(roomId){
-	var clients = io.sockets.adapter.rooms[roomId],
+	var	clients = io.sockets.adapter.rooms[roomId],
 		sockets = [];
 	for (var clientId in clients) {
 		var s = io.sockets.connected[clientId];
@@ -139,9 +132,28 @@ function emitMessages(shoe, asc, N, c1, s1, c2, s2){
 			for (var j=0; j<onSendMessagePlugins.length; j++) {
 				onSendMessagePlugins[j].onSendMessage(shoe, messages[i], shoe.emit);
 			}
+			miaou.pageBoxer.onSendMessage(shoe, messages[i], shoe.emit);
 		}
 		shoe.emit('messages', messages);
 	});
+}
+
+// to be used by bots, creates a message, store it in db and emit it to the room
+exports.botMessage = function(bot, roomId, content){
+	if (!roomId) throw "missing room Id";
+	db.on({content:content, author:bot.id, room:roomId, created:Date.now()/1000|0})
+	.then(db.storeMessage)
+	.then(function(m){
+		m.authorname = bot.name;
+		m.avs = bot.avatarsrc;
+		m.avk = bot.avatarkey;
+		m.bot = true;
+		m.room = roomId;
+		miaou.pageBoxer.onSendMessage(this, m, function(t,c){
+			emitToRoom(roomId, t, c);	
+		});
+		emitToRoom(roomId, 'message', m);
+	}).finally(db.off);
 }
 
 // builds an unpersonnalized message. This avoids requerying the DB for the user
@@ -161,7 +173,7 @@ function messageWithoutUserVote(message){
 //  - the socket join the sio room whose id is the id of the room (a number)
 //     and a sio room for every watched room, with id 'w'+room.id
 function handleUserInRoom(socket, completeUser){
-	var shoe = new shoes.Shoe(socket, completeUser),
+	var	shoe = new shoes.Shoe(socket, completeUser),
 		memroom,
 		watchset = new Set, // set of watched rooms ids (if any)
 		lastmmisreply, lastmmisatleastfivelines,
@@ -177,7 +189,7 @@ function handleUserInRoom(socket, completeUser){
 		.finally(db.off);
 	})
 	.on('ban', function(ban){
-		auths.wsOnBan(shoe, db, ban);
+		auths.wsOnBan(shoe, ban);
 	})
 	.on('rm_ping', function(mid){ // remove the ping(s) related to that message and propagate to other sockets of same user
 		db.on([mid, shoe.publicUser.id])
@@ -222,7 +234,10 @@ function handleUserInRoom(socket, completeUser){
 			]
 		})
 		.spread(function(r, ban){
-			if (r.private && !r.auth) throw new Error('Unauthorized user'); // FIXME don't fill the logs with those errors that can come very fast in case of pulling
+			if (r.private && !r.auth) {
+				// FIXME don't fill the logs with those errors that can come very fast in case of pulling
+				throw new Error('Unauthorized user'); 
+			}
 			if (ban) throw new Error('Banned user');
 			r.path = server.roomPath(r);
 			shoe.room = r;
@@ -269,7 +284,8 @@ function handleUserInRoom(socket, completeUser){
 					io.sockets.in(w.id).emit('enter', shoe.publicUser);
 				}
 				watchset.add(w.id);
-			}			
+			}
+			socket.emit('watch_started');
 		})
 		.catch(function(err){
 			shoe.error(err);
@@ -311,7 +327,7 @@ function handleUserInRoom(socket, completeUser){
 		db.on(userId)
 		.then(db.getUserById)
 		.then(function(user){
-			if (!user) throw 'User "'+username+'" not found';
+			if (!user) throw 'User "'+userId+'" not found';
 			return [user, this.getAuthLevel(shoe.room.id, user.id)]
 		})
 		.spread(function(user, authLevel){
@@ -338,7 +354,6 @@ function handleUserInRoom(socket, completeUser){
 			]
 		}).spread(function(hist, shist){
 			if (shist){
-				var ih = 0, ish = 0;
 				for (var ih=0, ish=0; ish<shist.length; ish++) {
 					var sh = shist[ish];
 					while (hist[ih].d<sh.d) ih++;
@@ -396,14 +411,18 @@ function handleUserInRoom(socket, completeUser){
 		.spread(commands.onMessage)
 		.then(function(ct){
 			commandTask = ct;
-			return [commandTask.nostore ? m : this.storeMessage(m, commandTask.ignoreMaxAgeForEdition), commandTask]
+			return [
+				commandTask.nostore ? m : this.storeMessage(m, commandTask.ignoreMaxAgeForEdition),
+				commandTask
+			]
 		}).spread(function(m, commandTask){
-			var remainingpings = []; // names of pinged users that weren't in the room or watching
-			if (commandTask.silent) return remainingpings;
+			var pings = []; // names of pinged users that weren't in the room
+			if (commandTask.silent) return pings;
 			if (m.changed) m.vote = '?';
 			for (var p of onSendMessagePlugins) {
 				p.onSendMessage(this, m, send);
 			}
+			miaou.pageBoxer.onSendMessage(this, m, send);
 			send('message', m);
 			if (commandTask.replyContent) {
 				var txt = commandTask.replyContent;
@@ -412,18 +431,36 @@ function handleUserInRoom(socket, completeUser){
 			}
 			io.sockets.in('w'+roomId).emit('watch_incr', roomId);
 			if (m.content && m.id) {
-				var pings = m.content.match(/@\w[\w\-]{2,}(\b|$)/g);
-				if (pings) {
-					for (var ping of pings) {
-						var username = ping.slice(1);
-						if (!shoe.userSocket(username)) remainingpings.push(username);
-					}
+				var r = /(?:^|\s)@(\w[\w\-]{2,})\b/g, ping;
+				while ((ping=r.exec(m.content))){
+					pings.push(ping[1]);
 				}
 			}
-			return remainingpings;
+			return pings;
+		}).reduce(function(pings, ping){ // expanding special pings (i.e. @room)
+			if (ping==='room') {
+				if (!shoe.room.private && shoe.room.auth!=='admin' && shoe.room.auth!=='own') {
+					shoe.error("Only an admin can ping @room in a public room");
+					return pings;
+				}
+				return this.listRoomUsers(shoe.room.id).then(function(users){
+					return pings.concat(users.map(function(u){ return u.name }));
+				});
+			} else if (ping==='here') {
+				return roomSockets(shoe.room.id).concat(roomSockets('w'+shoe.room.id))
+				.map(function(s){ return s.publicUser.name });
+			}
+			pings.push(ping);
+			return pings;
+		}, []).reduce(function(pings, ping){ // removing duplicates
+			if (!~pings.indexOf(ping)) pings.push(ping);
+			return pings;
+		}, []).then(function(pings){
+			return pings
 		}).filter(function(unsentping){
+			if (shoe.userSocket(unsentping)) return false; // no need to ping
 			if (!shoe.room.private) return true;
-			// user isn't in the room, we check he can enter the room (TODO check he's not banned ? or don't care ?)
+			// user isn't in the room, we check he can enter the room
 			return this.getAuthLevelByUsername(shoe.room.id, unsentping).then(function(oauth){
 				if (oauth) return true;
 				if (commandTask.cmd) return commandTask.alwaysPing;
@@ -436,7 +473,11 @@ function handleUserInRoom(socket, completeUser){
 					for (var clientId in io.sockets.connected) {
 						var socket = io.sockets.connected[clientId];
 						if (socket && socket.publicUser && socket.publicUser.name===username) {
-							socket.emit('pings', [{r:shoe.room.id, rname:shoe.room.name, mid:m.id}]);
+							socket.emit('pings', [{
+								// TODO rename r to room in pings
+								r:shoe.room.id, rname:shoe.room.name, mid:m.id,
+								authorname:m.authorname, content:m.content
+							}]);
 						}
 					}
 				}
@@ -497,7 +538,7 @@ function handleUserInRoom(socket, completeUser){
 		db.on([shoe.room.id, search.pattern, 'english', 50])
 		.spread(db.search)
 		.filter(function(m){ return !/^!!deleted /.test(m.content) })
-		.map(function(m){ return lighten(m) })
+		.map(clean)
 		.then(function(results){
 			socket.emit('found', {results:results, search:search});
 		}).finally(db.off);

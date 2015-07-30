@@ -1,10 +1,17 @@
-
-// A shoe embeds a socket and is provided to controlers and plugins.
+// A shoe wraps a socket and is provided to controlers and plugins.
 // It's kept in memory by the closures of the socket event handlers
 
-var io, db, onSendMessagePlugins;
+'use strict';
+
+var	miaou,
+	io,
+	db,
+	auths = require('./auths.js'),
+	ws = require('./ws.js'),
+	onSendMessagePlugins;
 	
-exports.configure = function(miaou){
+exports.configure = function(_miaou){
+	miaou = _miaou;
 	io = miaou.io;
 	db = miaou.db;
 }
@@ -21,8 +28,8 @@ function Shoe(socket, completeUser){
 		this.publicUser.avs = completeUser.avatarsrc;
 		this.publicUser.avk = completeUser.avatarkey;
 	}
-	this.room;
-	this.lastMessageTime;
+	this.room = null; // will be set later
+	this.lastMessageTime = 0;
 	this.db = db;
 	socket.publicUser = this.publicUser;
 	this.emit = socket.emit.bind(socket);
@@ -64,7 +71,8 @@ Shoes.allSocketsOfUser = function(){
 }
 Shoes.emitBotFlakeToRoom = function(bot, content, roomId){
 	io.sockets.in(roomId||this.room.id).emit('message', {
-		author:bot.id, authorname:bot.name, created:Date.now()/1000|0, bot:true, content:content
+		author:bot.id, authorname:bot.name, avs:bot.avatarsrc, avk:bot.avatarkey,
+		created:Date.now()/1000|0, bot:true, room:this.room.id, content:content
 	});
 }
 Shoes.pluginTransformAndSend = function(m, sendFun){
@@ -75,6 +83,11 @@ Shoes.pluginTransformAndSend = function(m, sendFun){
 }
 Shoes.io = function(){
 	return io;
+}
+Shoes.checkAuth = function(requiredLevel){
+	if (!auths.checkAtLeast(this.room.auth, requiredLevel)) {
+		throw new Error("This action requires the " + requiredLevel + " right");
+	}
 }
 
 // returns the socket of the passed user if he's in the same room
@@ -90,21 +103,17 @@ Shoes.userSocket = function(userIdOrName, includeWatchers) {
 	clients = io.sockets.adapter.rooms['w'+this.room.id];
 	for (var clientId in clients) {
 		var socket = io.sockets.connected[clientId];
-		if (socket && socket.publicUser && (socket.publicUser.id===userIdOrName||socket.publicUser.name===userIdOrName)) {
+		if (
+			socket && socket.publicUser &&
+			(socket.publicUser.id===userIdOrName||socket.publicUser.name===userIdOrName)
+		) {
 			return socket;
 		}		
 	}
 }
 // to be used by bots, creates a message, store it in db and emit it to the room
 Shoes.botMessage = function(bot, content){
-	var shoe = this;
-	this.db.on({content:content, author:bot.id, room:this.room.id, created:Date.now()/1000|0})
-	.then(db.storeMessage)
-	.then(function(m){
-		m.authorname = bot.name;
-		m.bot = true;
-		shoe.emitToRoom('message', m);
-	}).finally(this.db.off);
+	ws.botMessage(bot, this.room.id, content);
 }
 
 // gives the ids of the rooms to which the user is currently connected (either directly or via a watch)

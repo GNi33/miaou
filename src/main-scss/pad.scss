@@ -12,15 +12,14 @@
 	}
 }
 #stripe-top {
-	display: flex;
-	flex-direction: row;
-	height: 40px;
+	@include flexbox(row);
+	min-height: 40px;
 }
 
 #non-top {
 	opacity: 1;
 	&.behind {
-		opacity: .45;
+		opacity: $opacity-behind-open-top;
 		transition: opacity .4s;
 	}
 }
@@ -29,8 +28,9 @@
 	position: fixed;
 	top: 0;
 	z-index: 70;
+	color: $menu-item-color;
 	a.menu-item {
-		color: inherit;
+		color: $menu-item-color;
 		text-decoration: none;
 		display: block;
 		padding: 10px;
@@ -40,7 +40,7 @@
 		}
 	}
 	&.open {
-		width: 260px;	
+		width: 260px;
 		box-shadow: 0 0 2px black;
 		background: $menu-background;
 	}
@@ -67,7 +67,6 @@
 #Miaou-logo {
 	height: 40px;
 	padding-left: 2px;
-	color: $miaou-logo-color;
 }
 #menu-content {
 	display: none;
@@ -94,7 +93,7 @@
 #room-panel-wrapper {
 	margin-left: 40px;
 	position: relative;
-	flex: 0 1 500px;
+	flex: 0 1 430px;
 }
 #room-panel-bg, #room-panel {
 	position:absolute;
@@ -107,16 +106,14 @@
 	opacity: 0.6;
 }
 #room-panel {
-	display:flex;
-	flex-direction: row;
-	align-items: center;
-	height: 40px;
+	@include flexbox(row, center);
+	//~ height: 40px;
 	padding: 0 4px;
 	button {
 		opacity: 0;
 		transition: opacity 1s;
 	}
-	position: relative;
+	//~ position: relative;
 }
 #room-panel:hover button {
 	opacity: 1;
@@ -124,9 +121,9 @@
 	z-index: 2;
 }
 #room-title {
-	flex: 1;
+	@include flex(1 0);
 	#roomname {
-		color: inherit;
+		color: $roomname-color;
 		text-decoration: none;
 		text-shadow: $roomname-text-shadow;
 		font-size:115%;
@@ -134,8 +131,7 @@
 }
 
 #rooms-panel {
-	display:flex;
-	align-items: stretch;
+	@include flexbox(row, stretch);
 	&.closed {
 		height: 0;
 		transition: height .5s;	
@@ -146,71 +142,68 @@
 	}
 }
 #rooms {
-	display:flex;
-	align-items: stretch;
+	@include flexbox(row, stretch);
 	max-width: 1200px;
 }
 #rooms-spinner, #rooms-content {
-	flex: 1;
-	display:flex;
+	@include flex(1 0);
 }
 #rooms-spinner {
-	justify-content: center;
-	align-items: center;
+	@include flexbox(row, center, center);
 }
 #rooms-content {
-	align-items: stretch;
-	flex-direction: column;
+	@include flexbox(column, stretch);
 	padding: 5px;
 }
 
 #rooms-tabs {
-	display: flex;
-	flex-direction: row;
+	@include flexbox(row);
+	@include flex(0 0 34px);
 	.tab {
 		text-align: center;
 		padding: 5px 10px;
 		border-style:solid;
 		border-color:  $chat-tabs-border-color;
 		border-width: 0 0 $chat-tabs-border-width 0;
-		color: transparentize($title-text-color, 0.5);
+		color: $unselected-room-tab-color;
 		cursor: pointer;
 		background-image: $chat-tabs-unselected-bg-image;
 		&:hover {
-			color: transparentize($title-text-color, 0.2);
+			color: $hovered-room-tab-color;
 		}
 		&.selected {
-			color: $title-text-color;
+			color: $selected-room-tab-color;
 			background-image: $chat-tabs-selected-bg-image;
+			background-color: $room-tab-bg-color;
 			border-width: $chat-tabs-border-width $chat-tabs-border-width 0 $chat-tabs-border-width;	
 		}
 	}
 	.aftertabs {
-		flex: 1
+		@include flex(1 0);
 	}
 }
 #rooms-page {
-	flex: 1;
+	@include flex(1 1);
 	border-style:solid;
 	border-color: $chat-tabs-border-color;
 	border-width: 0 $chat-tabs-border-width $chat-tabs-border-width $chat-tabs-border-width;	
+	background-color: $room-tab-bg-color;
 	padding: 5px;
 	overflow-y: auto;
-	display: flex;
-	flex-direction: row;
+	@include flexbox(row);
 	min-width: 1000px;
 	.rooms-list {
 		flex: 0 1 800px;
 		.room {
-			display: flex;
-			flex-direction: row;
+			@include flexbox(row);
 			position: relative;
+			margin: 1px 0;
 			&:hover {
 				background: $pad-room-hover-bg;
 				transition: background .5s;
 			}
 			.room-left {
-				flex: 1;
+				@include flex(1 0);
 				a.room-title {
 					color: inherit;
 					margin: 4px 0;
@@ -225,12 +218,10 @@
 				}			
 			}
 			.room-right {
-				flex: 0 0 80px;
+				@include flex(0 0 80px);
 				visibility: hidden;
 				padding: 4px;
-				display: flex;
-				flex-direction: column;
-				justify-content: center;
+				@include flexbox(column, center, center);
 				span {
 					margin: 8px 0;
 					text-align: center;				
@@ -265,14 +256,14 @@
 		padding-top: 15px;
 	}
 }
-#roomdescription {
+#room-description {
 	max-height: 60px;
 	overflow-y: hidden;
 	margin-bottom: 10px;
 	position: relative;
 	-webkit-mask-image: -webkit-gradient(linear, left top, left bottom, color-stop(0, rgba(0,0,0,1)), color-stop(0.6, rgba(0,0,0,1)), color-stop(0.8, rgba(0,0,0,.8)), color-stop(1, rgba(0,0,0,0)));
 }
-#roomdescription:hover {
+#room-description:hover {
 	max-height: none;
 	-webkit-mask-image: none;
 	transition: max-height .3s; // doesn't work

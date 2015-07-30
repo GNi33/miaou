@@ -2,10 +2,17 @@
 
 // manage authorizations and bans
 
-const levels = ['read', 'write', 'admin', 'own'],
+const	levels = ['read', 'write', 'admin', 'own'],
 	naming = require('./naming.js'),
 	server = require('./server.js'),
 	ws = require('./ws.js');
+	
+var db;
+
+exports.configure = function(miaou){
+	db = miaou.db;
+	return this;
+}
 
 exports.checkAtLeast = function(auth, neededAuth) {
 	for (var i=levels.length; i-->0;) {
@@ -16,7 +23,7 @@ exports.checkAtLeast = function(auth, neededAuth) {
 }
 
 // handles GET of the auths /page
-exports.appGetAuths = function(req, res, db){
+exports.appGetAuths = function(req, res){
 	db.on([+req.query.id, +req.user.id])
 	.spread(db.fetchRoomAndUserAuth)
 	.then(function(room){
@@ -48,7 +55,7 @@ exports.appGetAuths = function(req, res, db){
 }
 
 // handles POST of the auths /page
-exports.appPostAuths = function(req, res, db){
+exports.appPostAuths = function(req, res){
 	var room;
 	db.on([+req.query.id, +req.user.id])
 	.spread(db.fetchRoomAndUserAuth)
@@ -61,11 +68,12 @@ exports.appPostAuths = function(req, res, db){
 		if (r.dialog) {
 			return server.renderErr(res, "You can't change authorizations of a dialog room");			
 		}
-		var m, actions = [];
+		var m, modifiedUserId, actions = [];
 		for (var key in req.body){
 			if (m = key.match(/^answer_request_(\d+)$/)) {
-				var accepted = req.body[key]==='grant', modifiedUserId = +m[1],
+				var	accepted = req.body[key]==='grant',
 					denyMessage = req.body['deny_message_'+m[1]];
+				modifiedUserId = +m[1];
 				if (accepted) {
 					actions.push({cmd:'insert_auth', auth:'write', user:modifiedUserId});
 					actions.push({cmd:'delete_ar', user:modifiedUserId});
@@ -76,7 +84,8 @@ exports.appPostAuths = function(req, res, db){
 			} else if (m = key.match(/^insert_auth_(\d+)$/)) {
 				if (req.body[key]!='none') actions.push({cmd:'insert_auth', auth:req.body[key], user:+m[1]});
 			} else if (m = key.match(/^change_auth_(\d+)$/)) {
-				var new_auth = req.body[key], modifiedUserId = +m[1];
+				var new_auth = req.body[key];
+				modifiedUserId = +m[1];
 				if (new_auth==='none') {
 					actions.push({cmd:'delete_auth', user:modifiedUserId});
 					if (r.private) {
@@ -103,7 +112,7 @@ exports.appPostAuths = function(req, res, db){
 	}).finally(db.off);
 }
 
-exports.wsOnBan = function(shoe, db, o){
+exports.wsOnBan = function(shoe, o){
 	if (!shoe.room) return console.log('No room in wsOnBan');
 	o.banner = shoe.publicUser.id;
 	o.bannername = shoe.publicUser.name;

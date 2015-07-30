@@ -1,7 +1,7 @@
 // md is short for "message display"
 // Here are functions related to the display of messages in the chat and to the various message element lists
 
-miaou(function(md, chat, gui, hist, locals, usr){
+miaou(function(md, chat, gui, hist, locals, skin, time, usr){
 	
 	var renderers = [], unrenderers = [];
 	
@@ -28,6 +28,12 @@ miaou(function(md, chat, gui, hist, locals, usr){
 		unrenderers.unshift(fun);
 	}
 	md.render = function($content, message, oldMessage){
+		
+		// DEBUG
+		if (!message.room) {
+			console.log("missing room in", message);
+		}
+		
 		for (var i=0; i<renderers.length; i++) {
 			if (renderers[i]($content, message, oldMessage)) break;
 		}
@@ -66,7 +72,8 @@ miaou(function(md, chat, gui, hist, locals, usr){
 	md.addSideMessageDiv = function(m, $div, $repl){
 		var	$content = $('<div>').addClass('content');
 		var $md = $('<div>').addClass('message').data('message',m).append($content).append(
-			$('<div>').addClass('nminfo').html(md.votesAbstract(m) + ' ' + miaou.formatDate((m.created+chat.timeOffset)*1000) + ' by ' + m.authorname)
+			$('<div>').addClass('nminfo')
+			.html(md.votesAbstract(m) + ' ' + time.formatTime(m.created) + ' by ' + m.authorname)
 		);
 		if (m.author===locals.me.id) $md.addClass('me');
 		if ($repl) $repl.replaceWith($md);
@@ -77,7 +84,6 @@ miaou(function(md, chat, gui, hist, locals, usr){
 		if ($content.height()>80) {
 			$content.addClass("closed");
 			$md.append('<div class=opener>');
-			$md.reflow();
 		}
 	}
 
@@ -125,14 +131,16 @@ miaou(function(md, chat, gui, hist, locals, usr){
 	md.notificationMessage = function(fill){
 		var	notification = {closelisteners:[]},
 			wab = gui.isAtBottom(),
-			$md = notification.$md = $('<div>').addClass('notification').appendTo('#notifications').data('notification', notification);
-		notification.remove = function(){
-			var f;
-			while (f = notification.closelisteners.shift()) f();
-			$md.remove();
-		}
-		notification.onclose = function(f){
-			notification.closelisteners.push(f);
+			$md = notification.$md = $('<div>').addClass('notification')
+			.appendTo('#notifications').data('notification', notification);
+		notification.remove = function(f){
+			if (typeof f === "function") {
+				notification.closelisteners.push(f);
+			} else {
+				while (f = notification.closelisteners.shift()) f();
+				$md.remove();
+			}
+			return this;
 		}
 		$md.append($('<button>').addClass('remover').text('X').click(notification.remove));
 		fill($md, notification.remove);
@@ -159,12 +167,11 @@ miaou(function(md, chat, gui, hist, locals, usr){
 			if ($content.height()>158) {
 				$content.addClass("closed");
 				$md.addClass("has-opener").append('<div class=opener>');
-				$md.reflow();
 			}
 			if (wasAtBottom) gui.scrollToBottom();
 		}
 		resize();
-		$content.find('img').load(resize);
+		$content.find('img').imgOn('load', resize);
 	}
 	
 	// resizes all messages. This must be called each time a container of
@@ -184,7 +191,6 @@ miaou(function(md, chat, gui, hist, locals, usr){
 		todo.forEach(function(t){
 			t.$md.append('<div class=opener>');
 			t.$content.addClass("closed").height();
-			t.$md.reflow();
 		});
 		$messages.find('.user').each(function(){
 			resizeUser($(this));
@@ -219,33 +225,20 @@ miaou(function(md, chat, gui, hist, locals, usr){
 			}
 		}
 	}
-	
-	var stringToColour = function(str) {
-		var hash = 0;
-		for (var i = 0; i < str.length; i++) {
-			hash = str.charCodeAt(i) + ((hash << 5) - hash);
-		}
-		var colour = '#';
-		for (var i = 0; i < 3; i++) {
-			var value = (hash >> (i * 8)) & 0xFF;
-			colour += ('00' + value.toString(16)).substr(-2);
-		}
-		return colour;
-	}
-	
+		
 	function selfHide(){
 		this.style.visibility="hidden";
 	}
-	
+
 	// builds a new .user-messages div for the passed user)
 	function usermessagesdiv(user){
 		var $usermessages = $('<div>').addClass('user-messages').data('user',user),
 			$user = $('<div>').addClass('user').appendTo($usermessages),
 			avsrc = usr.avatarsrc(user);
-		$user.css('color', stringToColour(user.name)).append($('<span/>').text(user.name));
+		$user.css('color', skin.stringToColour(user.name)).append($('<span/>').text(user.name));
 		if (avsrc) {
 			$('<div>').addClass('avatar-wrapper').prependTo($user).append(
-				$('<img>').attr('src',avsrc).addClass('avatar').on('error', selfHide)
+				$('<img>').attr('src',avsrc).addClass('avatar').imgOn('error', selfHide)
 			);
 		} else {
 			$('<div>').addClass('avatar').prependTo($user);
@@ -275,13 +268,20 @@ miaou(function(md, chat, gui, hist, locals, usr){
 				}
 			}
 			if (!oldMessage) {
-				if (messages.length===0 || message.id<messages[0].id || message.created<messages[0].created) {
+				if (
+					messages.length===0
+					|| message.id<messages[0].id
+					|| message.created<messages[0].created
+				) {
 					insertionIndex = -1;
 					// the following line because of the possible special case of a
 					//  pin vote being removed by somebody's else 
 					if (message.vote && !message[message.vote]) delete message.vote; // fixme ???
 				} else {
-					while ( insertionIndex && (messages[insertionIndex].id>message.id || messages[insertionIndex].created>message.created) ){
+					while ( insertionIndex && (
+						messages[insertionIndex].id>message.id
+						|| messages[insertionIndex].created>message.created
+					) ){
 						insertionIndex--;
 					};
 				}
@@ -347,14 +347,15 @@ miaou(function(md, chat, gui, hist, locals, usr){
 			if (message.previous) $pen.addClass('clickable').attr('title', 'Click for message history');
 		}
 		if (!message.id) {
-			$('<div>&#xe826;</div>').addClass('decoration snap').appendTo($decorations).attr('title', "Flake : only sent to people currently in the room, and will disappear if you refresh the page.");
+			$('<div>&#xe826;</div>').addClass('decoration snap').appendTo($decorations)
+			.attr('title', "Flake : only sent to people currently in the room, and will disappear if you refresh the page.");
 		}
 		if (votesHtml.length) $md.append($('<div/>').addClass('message-votes').html(votesHtml));
 		if (!$mc) $mc = $('<div>').addClass('content');
 		$mc.appendTo($md);
 		md.render($mc, message, oldMessage);
 		if (!gui.mobile && locals.userPrefs.datdpl!=="hover") {
-			var $mdate = $('<div>').addClass('mdate').text(miaou.formatTime(message.created)).appendTo($md);
+			var $mdate = $('<div>').addClass('mdate').text(time.formatTime(message.created)).appendTo($md);
 			if (locals.userPrefs.datdpl!=="always") $mdate.hide();
 		}
 		resize($md, shouldStickToBottom);

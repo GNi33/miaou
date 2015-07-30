@@ -1,5 +1,5 @@
-miaou(function(locals){
+miaou(function(){
 
-	$('#goto-home').click(function(){ location = '../rooms' });
-
+	$('#goto-home,#user-miaou-logo-wrapper').click(function(){ location = '../rooms' });
+	
 });

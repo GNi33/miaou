@@ -4,7 +4,7 @@
 //  - hovering a message
 //  - closing/opening a big message
 
-miaou(function(md, chat, gui, hist, links, locals, ms, notif, usr, ws, wz){
+miaou(function(md, chat, gui, hist, links, locals, ms, notif, time, usr, ws, wz){
 
 	// o : mid, level, diff, self, voter
 	// diff  : +1 or -1
@@ -21,7 +21,7 @@ miaou(function(md, chat, gui, hist, links, locals, ms, notif, usr, ws, wz){
 				md.hideMessageHoverInfos();
 			} else {
 				$md.find('.nminfo').html(
-					md.votesAbstract(m) + ' ' + miaou.formatDate((m.created+chat.timeOffset)*1000) + ' by ' + m.authorname
+					md.votesAbstract(m) + ' ' + time.formatTime(m.created) + ' by ' + m.authorname
 				);
 			}
 		});
@@ -42,7 +42,6 @@ miaou(function(md, chat, gui, hist, links, locals, ms, notif, usr, ws, wz){
 			$md = $(this).removeClass('closer').addClass('opener').closest('.message');
 		$md.find('.content').addClass('closed');
 		notif.userAct($md.data('message').id);
-		$md.reflow();
 		if (wab) gui.scrollToBottom();
 		e.stopPropagation();
 		wz.updateAll();		
@@ -54,11 +53,11 @@ miaou(function(md, chat, gui, hist, links, locals, ms, notif, usr, ws, wz){
 	function getMessageMenuHtml(message){
 		var infos = [];
 		if (message.old && !message.editable) infos.push('too old to edit');
-		infos.push(miaou.formatRelativeDate((message.created+chat.timeOffset)*1000));
+		infos.push(time.formatRelativeTime(message.created));
 		var h = infos.map(function(txt){ return '<span class=txt>'+txt+'</span>' }).join(' - ') + ' ';
 		if (message.id) {
 			h += '<a class=link target=_blank href="'+links.permalink(message)+'" title="permalink : right-click to copy">&#xe815;</a> ';
-			h += '<a class=makemwin title="float">&#xe81d;</a> ';
+			if (!gui.mobile) h += '<a class=makemwin title="float">&#xe81d;</a> ';
 			h += chat.voteLevels.slice(0, message.author===locals.me.id ? 1 : 4).slice(usr.checkAuth('admin')?0:1).map(function(l){
 				return '<span class="vote'+(l.key===message.vote?' on':'')+'" vote-level='+l.key+' title="'+l.key+'">'+l.icon+'</span>'
 			}).join('');
@@ -138,6 +137,5 @@ miaou(function(md, chat, gui, hist, links, locals, ms, notif, usr, ws, wz){
 		}
 		ws.emit('get_around', { target:messageId, olderPresent:beforeId, newerPresent:afterId });
 	}
-		
 
 });
